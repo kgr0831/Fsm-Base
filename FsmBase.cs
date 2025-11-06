@@ -1,26 +1,51 @@
-public class FsmBase
+using UnityEngine;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+
+public class FsmBase : MonoBehaviour
 {
-    public delegate void StateAction();
+    public string currentName;
+    IState current;
+    List<Transition> transitions = new();
 
-    public class State
+    public void Set(IState next)
     {
-        public StateAction OnEnter;
-        public StateAction OnExit;
-        public StateAction OnUpdate; 
-
-        public void Enter() => OnEnter?.Invoke();
-        public void Exit() => OnExit?.Invoke();
-        public void Update() => OnUpdate?.Invoke();
+        current?.Exit();
+        current = next;
+        currentName = next.GetType().Name;
+        current.Enter();
     }
 
-    protected State _currentState;
-
-    public void SetState(State newState)
+    public void Add(IState from, IState to, Func<bool> condition)
     {
-        _currentState?.Exit();
-        _currentState = newState;
-        _currentState.Enter();
+        transitions.Add(new Transition { from = from, to = to, condition = condition });
     }
 
-    public void Update() => _currentState?.Update(); // In Unity(Update func)
+    public bool Is(IState state) => current == state;
+    public bool Is<T>() where T : IState => current is T;
+
+    void Update()
+    {
+        var t = transitions.FirstOrDefault(x => x.from == current && x.Can());
+        if (t != null) Set(t.to);
+        current?.Update();
+    }
+}
+
+
+public interface IState
+{
+    void Enter();
+    void Update();
+    void Exit();
+}
+
+public class Transition
+{
+    public IState from;
+    public IState to;
+    public Func<bool> condition;
+    public bool Can() => condition?.Invoke() ?? false;
 }
